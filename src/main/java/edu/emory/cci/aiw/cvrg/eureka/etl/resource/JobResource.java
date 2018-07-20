@@ -95,6 +95,8 @@ import org.eurekaclinical.eureka.client.comm.Phenotype;
 import org.eurekaclinical.eureka.client.comm.PhenotypeVisitor;
 import org.eurekaclinical.eureka.client.comm.exception.PhenotypeHandlingException;
 import org.eurekaclinical.phenotype.client.EurekaClinicalPhenotypeClient;
+import edu.emory.cci.aiw.cvrg.eureka.etl.conversion.PropositionDefinitionCollector;
+import edu.emory.cci.aiw.cvrg.eureka.etl.conversion.PropositionDefinitionConverterVisitor;
 import org.eurekaclinical.standardapis.exception.HttpStatusException;
 import org.protempa.PropositionDefinition;
 import org.protempa.backend.BackendInstanceSpec;
@@ -124,7 +126,7 @@ public class JobResource {
 	private final Provider<EntityManager> entityManagerProvider;
 	private final Provider<Task> taskProvider;
         private final EurekaClinicalPhenotypeClient phenotypeClient;
-        
+        private final PropositionDefinitionConverterVisitor converterVisitor;
 	@Inject
 	public JobResource(JobDao inJobDao, TaskManager inTaskManager,
 			AuthorizedUserDao inEtlUserDao, DestinationDao inDestinationDao,
@@ -144,6 +146,7 @@ public class JobResource {
 		this.entityManagerProvider = inEntityManagerProvider;
 		this.taskProvider = inTaskProvider;
                 this.phenotypeClient = inPhenotypeClient;
+                //this.converterVisitor = new PropositionDefinitionConverterVisitor();
 	}
 
 	@Transactional
@@ -220,19 +223,22 @@ public class JobResource {
 	public Response submit(@Context HttpServletRequest request,
 			JobSpec jobSpec) {
                 List<PropositionDefinition> propositionList;
+                List<Phenotype> phenotypeList;
                 System.out.println("Protempa /jobs proposition definitions");
+                PropositionDefinitionCollector collector
+				= PropositionDefinitionCollector.getInstance(
+						this.converterVisitor, phenotypeEntities);
+		result = collector.getUserPropDefs();
+                
 
                 try{
                     propositionList = this.phenotypeClient.getPhenotypes2Proposition();       
-                    
+                    phenotypeList = this.phenotypeClient.getPhenotypes(null, false);
                     
                 }
                 catch (ClientException ex) {
                     throw new HttpStatusException(Status.INTERNAL_SERVER_ERROR, ex);
 		} 
-                
-                
-                
                 AuthorizedUserEntity user = this.etlUserDao.getByHttpServletRequest(request);
 		JobRequest jobRequest = new JobRequest();
 		
