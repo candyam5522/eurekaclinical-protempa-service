@@ -4,6 +4,10 @@
  * %%
  * Copyright (C) 2012 - 2013 Emory University
  * %%
+ * This program is dual licensed under the Apache 2 and GPLv3 licenses.
+ * 
+ * Apache License, Version 2.0:
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,19 +19,38 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * 
+ * GNU General Public License version 3:
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.html>.
  * #L%
  */
 package edu.emory.cci.aiw.cvrg.eureka.etl.conversion;
 
-import org.eurekaclinical.phenotype.service.entity.PhenotypeEntity;
-import org.eurekaclinical.phenotype.service.entity.ExtendedPhenotype;
-import org.eurekaclinical.phenotype.service.entity.FrequencyEntity;
+import static edu.emory.cci.aiw.cvrg.eureka.etl.conversion.ConversionUtil.frequencyTypeName;
 import org.protempa.PropositionDefinition;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static edu.emory.cci.aiw.cvrg.eureka.etl.conversion.ConversionUtil.unit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.eurekaclinical.eureka.client.comm.Frequency;
+import org.eurekaclinical.eureka.client.comm.Phenotype;
+import org.eurekaclinical.eureka.client.comm.exception.PhenotypeHandlingException;
 import org.protempa.HighLevelAbstractionDefinition;
 import org.protempa.SimpleGapFunction;
 import org.protempa.SliceDefinition;
@@ -61,30 +84,31 @@ public final class FrequencyNotValueThresholdConverter
 	}
 
 	@Override
-	public List<PropositionDefinition> convert(FrequencyEntity entity) {
-		if (entity.getAbstractedFrom() == null) {
-			throw new IllegalArgumentException("entity cannot have a null abstractedFrom field");
-		}
+	public List<PropositionDefinition> convert(Frequency entity) {
 		List<PropositionDefinition> result = new ArrayList<>();
 		String propId = this.conversionSupport.toPropositionId(entity);
 		this.primaryPropId = propId;
 		if (this.converterVisitor.addPropositionId(propId)) {
-			ExtendedPhenotype extendedProposition = entity.getExtendedProposition();
+			//ExtendedPhenotype extendedProposition = entity.getExtendedProposition();
 			HighLevelAbstractionDefinition p =
 					new HighLevelAbstractionDefinition(propId);
 			p.setDisplayName(entity.getDisplayName());
 			p.setDescription(entity.getDescription());
 			p.setGapFunction(new SimpleGapFunction(0, null));
-			if (entity.getFrequencyType().getName().equals("at least")) {
-				PhenotypeEntity abstractedFrom = extendedProposition.getPhenotypeEntity();
-				abstractedFrom.accept(converterVisitor);
+			if (frequencyTypeName(entity.getFrequencyType()).equals("at least")) {
+				Phenotype abstractedFrom = entity;
+                            try {
+                                abstractedFrom.accept(converterVisitor);
+                            } catch (PhenotypeHandlingException ex) {
+                                Logger.getLogger(FrequencyNotValueThresholdConverter.class.getName()).log(Level.SEVERE, null, ex);
+                            }
 				result.addAll(converterVisitor.getPropositionDefinitions());
 				TemporalExtendedPropositionDefinition[] tepds =
-						new TemporalExtendedPropositionDefinition[entity.getCount()];
-				for (int i = 0; i < entity.getCount(); i++) {
+						new TemporalExtendedPropositionDefinition[entity.getAtLeast()];
+				for (int i = 0; i < entity.getAtLeast(); i++) {
 					TemporalExtendedPropositionDefinition tepd =
 							ConversionUtil.buildExtendedPropositionDefinition(
-							extendedProposition);
+							entity.getPhenotype());
 					tepds[i] = tepd;
 					p.add(tepd);
 				}
@@ -101,22 +125,26 @@ public final class FrequencyNotValueThresholdConverter
 				} else {
 					p.setRelation(tepds[0], tepds[0], new Relation());
 				}
-			} else if (entity.getFrequencyType().getName().equals("first")) {
+			} else if (frequencyTypeName(entity.getFrequencyType()).equals("first")) {
 				String wrapperPropId = entity.getKey() + "_SUB";
 				SliceDefinition sp = new SliceDefinition(wrapperPropId);
 				sp.setDisplayName(entity.getDisplayName());
 				sp.setDescription(entity.getDescription());
-				PhenotypeEntity abstractedFrom = extendedProposition.getPhenotypeEntity();
-				abstractedFrom.accept(converterVisitor);
+				Phenotype abstractedFrom = entity;
+                            try {
+                                abstractedFrom.accept(converterVisitor);
+                            } catch (PhenotypeHandlingException ex) {
+                                Logger.getLogger(FrequencyNotValueThresholdConverter.class.getName()).log(Level.SEVERE, null, ex);
+                            }
 				result.addAll(converterVisitor.getPropositionDefinitions());
 				sp.setMergedInterval(true);
 				sp.setGapFunction(new SimpleGapFunction(0, null));
 				TemporalExtendedPropositionDefinition tepd =
 						ConversionUtil.buildExtendedPropositionDefinition(
-						extendedProposition);
+						entity.getPhenotype());
 				sp.add(tepd);
 				sp.setMinIndex(0);
-				sp.setMaxIndex(entity.getCount());
+				sp.setMaxIndex(entity.getAtLeast());
 				sp.setSourceId(sourceId(entity));
 
 				TemporalExtendedPropositionDefinition tepds =
@@ -125,7 +153,7 @@ public final class FrequencyNotValueThresholdConverter
 				p.setRelation(tepds, tepds, new Relation());
 				result.add(sp);
 			} else {
-				throw new IllegalStateException("invalid frequency type: " + entity.getFrequencyType().getName());
+				throw new IllegalStateException("invalid frequency type: " + frequencyTypeName(entity.getFrequencyType()));
 			}
 			
 			p.setSourceId(sourceId(entity));

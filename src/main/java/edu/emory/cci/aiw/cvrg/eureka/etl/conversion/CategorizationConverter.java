@@ -4,6 +4,10 @@
  * %%
  * Copyright (C) 2012 - 2013 Emory University
  * %%
+ * This program is dual licensed under the Apache 2 and GPLv3 licenses.
+ * 
+ * Apache License, Version 2.0:
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,6 +19,22 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * 
+ * GNU General Public License version 3:
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.html>.
  * #L%
  */
 package edu.emory.cci.aiw.cvrg.eureka.etl.conversion;
@@ -29,8 +49,11 @@ import org.protempa.SliceDefinition;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.eurekaclinical.eureka.client.comm.Category;
 import org.eurekaclinical.eureka.client.comm.Phenotype;
+import org.eurekaclinical.eureka.client.comm.exception.PhenotypeHandlingException;
 import org.protempa.SequentialTemporalPatternDefinition;
 
 public final class CategorizationConverter extends AbstractConverter implements
@@ -60,7 +83,7 @@ public final class CategorizationConverter extends AbstractConverter implements
 	}
 
 	@Override
-	public List<PropositionDefinition> convert(Category category) {
+	public List<PropositionDefinition> convert(Category category){
 		List<PropositionDefinition> result =
 				new ArrayList<>();
 		String id = this.conversionSupport.toPropositionId(category);
@@ -71,15 +94,20 @@ public final class CategorizationConverter extends AbstractConverter implements
 					new ArrayList<>();
 			List<PropositionDefinition> inverseIsADefsIncludingSecondaries =
 					new ArrayList<>();
-                        category.get
-			for (Phenotype e : category.getMembers()) {
-				e.accept(this.converterVisitor);
-				inverseIsADefsIncludingSecondaries.addAll(this.converterVisitor
-						.getPropositionDefinitions());
-				String primaryPropositionId =
-						this.converterVisitor.getPrimaryPropositionId();
-				inverseIsADefs.add(primaryPropositionId);
-			}
+                        try {
+                            for (Phenotype e : category.getMembers()) {
+
+                                    e.accept(this.converterVisitor);
+                                    inverseIsADefsIncludingSecondaries.addAll(this.converterVisitor
+                                            .getPropositionDefinitions());
+                                    String primaryPropositionId =
+                                            this.converterVisitor.getPrimaryPropositionId();
+                                    inverseIsADefs.add(primaryPropositionId);
+
+                            }
+                        } catch (PhenotypeHandlingException ex) {
+                                Logger.getLogger(CategorizationConverter.class.getName()).log(Level.SEVERE, null, ex);
+                            }
 			result.addAll(inverseIsADefsIncludingSecondaries);
 			String[] inverseIsA = inverseIsADefs.toArray(
 					new String[inverseIsADefs.size()]);
