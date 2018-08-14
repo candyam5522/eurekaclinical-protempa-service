@@ -134,7 +134,8 @@ public class JobResource {
 			ProtempaDestinationFactory inProtempaDestinationFactory,
 			Provider<EntityManager> inEntityManagerProvider,
 			Provider<Task> inTaskProvider,
-                        EurekaClinicalPhenotypeClient inPhenotypeClient
+                        EurekaClinicalPhenotypeClient inPhenotypeClient,
+                        PropositionDefinitionConverterVisitor  inConverterVisitor 
                         ) {
 		this.jobDao = inJobDao;
 		this.taskManager = inTaskManager;
@@ -146,7 +147,7 @@ public class JobResource {
 		this.entityManagerProvider = inEntityManagerProvider;
 		this.taskProvider = inTaskProvider;
                 this.phenotypeClient = inPhenotypeClient;
-                //this.converterVisitor = new PropositionDefinitionConverterVisitor();
+                this.converterVisitor = inConverterVisitor;
 	}
 
 	@Transactional
@@ -225,20 +226,25 @@ public class JobResource {
                 List<PropositionDefinition> propositionList;
                 List<Phenotype> phenotypeList;
                 System.out.println("Protempa /jobs proposition definitions");
-                PropositionDefinitionCollector collector
-				= PropositionDefinitionCollector.getInstance(
-						this.converterVisitor, phenotypeEntities);
-		result = collector.getUserPropDefs();
-                
-
                 try{
-                    propositionList = this.phenotypeClient.getPhenotypes2Proposition();       
+                    //propositionList = this.phenotypeClient.getPhenotypes2Proposition();       
                     phenotypeList = this.phenotypeClient.getPhenotypes(null, false);
+                    this.converterVisitor.setAllCustomPhenotypes(phenotypeList);
+                    PropositionDefinitionCollector collector
+				= PropositionDefinitionCollector.getInstance(
+						this.converterVisitor, phenotypeList);
+                    propositionList = collector.getUserPropDefs();
                     
                 }
                 catch (ClientException ex) {
                     throw new HttpStatusException(Status.INTERNAL_SERVER_ERROR, ex);
 		} 
+                catch (PhenotypeHandlingException ex) {
+                    
+                    Logger.getLogger(JobResource.class.getName()).log(Level.SEVERE, null, ex);
+                    throw new HttpStatusException(Status.INTERNAL_SERVER_ERROR, ex);
+                }
+               
                 AuthorizedUserEntity user = this.etlUserDao.getByHttpServletRequest(request);
 		JobRequest jobRequest = new JobRequest();
 		

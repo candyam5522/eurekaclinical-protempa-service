@@ -48,6 +48,8 @@ package edu.emory.cci.aiw.cvrg.eureka.etl.conversion;
 import java.util.List;
 import org.eurekaclinical.eureka.client.comm.Phenotype;
 import org.eurekaclinical.eureka.client.comm.PhenotypeField;
+import org.eurekaclinical.eureka.client.comm.ValueThreshold;
+import org.eurekaclinical.eureka.client.comm.ValueThresholds;
 import org.protempa.ContextDefinition;
 import org.protempa.ContextOffset;
 import org.protempa.proposition.interval.Interval.Side;
@@ -101,6 +103,25 @@ class ConversionUtil {
 		return unitName != null ? AbsoluteTimeUnit.nameToUnit(unitName)
 				: null;
 	}
+        //
+        static String relationOperatorName(Long relationOperator){
+            String opName;
+            switch (relationOperator.intValue()){
+                case 1:
+                    opName = "before";
+                    break;
+                case 2:
+                    opName = "after";
+                    break;
+                case 3:
+                    opName = "around";
+                    break;
+                default:
+                    opName = null;
+                    break;
+            }
+            return opName;
+        }
         //Frequency Type Name
         static String frequencyTypeName(Long frequencyType) {
                 String frequencyTypeName;
@@ -116,6 +137,81 @@ class ConversionUtil {
                 }
 		return frequencyTypeName;
 	}
+        
+        //ThresholdOp name
+        static String thresholdOperationName(Long thresholdOp){
+            String thresholdOpName;
+            switch(thresholdOp.intValue()){
+                case 1:
+                    thresholdOpName = "any";
+                    break;
+                case 2:
+                    thresholdOpName = "all";
+                    break;
+                default:
+                    thresholdOpName = null;
+            }
+            
+            return thresholdOpName;
+        }
+        
+        //Comparator name
+        
+        static String valueComparatorName(Long compID){
+            String compName;
+            switch(compID.intValue()){
+                case 1:
+                    compName = "=";
+                    break;
+                case 2:
+                    compName = "not=";
+                    break;
+                case 3:
+                    compName = ">";
+                    break;
+                case 4:
+                    compName = ">=";
+                    break;
+                case 5:
+                    compName= "<";
+                    break;
+                case 6:
+                    compName = "<=";
+                    break;
+                default:
+                    compName = null;
+            }
+            return compName;
+        }
+        
+        
+        static String valueComparatorComplement(String comp){
+            String compName;
+            switch(comp){
+                case "not=":
+                    compName = "=";
+                    break;
+                case "=":
+                    compName = "not=";
+                    break;
+                case "<=":
+                    compName = ">";
+                    break;
+                case "<":
+                    compName = ">=";
+                    break;
+                case ">=":
+                    compName= "<";
+                    break;
+                case ">":
+                    compName = "<=";
+                    break;
+                default:
+                    compName = null;
+            }
+            return compName;
+        }
+    
 
 	static TemporalExtendedPropositionDefinition buildExtendedPropositionDefinition(PhenotypeField phenotypeField) {
 		TemporalExtendedPropositionDefinition tepd =
@@ -138,7 +234,7 @@ class ConversionUtil {
 
 	static ContextDefinition extractContextDefinition(
 			ValueThresholds entity,
-			List<ExtendedPhenotype> extendedPhenotypes,
+			List<PhenotypeField> extendedPhenotypes,
 			ValueThreshold v) {
 		ContextDefinition cd = new ContextDefinition(
 				entity.getKey() + "_SUB_CONTEXT");
@@ -146,61 +242,62 @@ class ConversionUtil {
 		TemporalExtendedPropositionDefinition[] tepds =
 				new TemporalExtendedPropositionDefinition[extendedPhenotypes.size()];
 		int i = 0;
-		for (ExtendedPhenotype ede : extendedPhenotypes) {
-			PhenotypeEntity dee = ede.getPhenotypeEntity();
+		for (PhenotypeField ede : extendedPhenotypes) {
 			TemporalExtendedPropositionDefinition tepd;
-			String tepdId = dee.getKey();
-			if (!dee.isInSystem()) {
+			String tepdId = ede.getPhenotypeKey();
+			if (!ede.isInSystem()) {
 				tepdId = CONVERSION_SUPPORT.toPropositionId(tepdId);
 			}
-			if (dee instanceof ValueThresholdGroupEntity) {
+			if (ede.getType() == Phenotype.Type.VALUE_THRESHOLD) {
 				TemporalExtendedParameterDefinition teParamD =
 						new TemporalExtendedParameterDefinition(tepdId);
-				teParamD.setValue(CONVERSION_SUPPORT.asValue(dee));
+				//teParamD.setValue(CONVERSION_SUPPORT.asValue(ede));
+                                teParamD.setValue(CONVERSION_SUPPORT.asValue(ede.getPhenotypeKey()));
+
 				tepd = teParamD;
 			} else {
 				tepd = new TemporalExtendedPropositionDefinition(tepdId);
 			}
-			tepd.setDisplayName(dee.getDisplayName());
+			tepd.setDisplayName(ede.getPhenotypeDisplayName());
 			tepd.setMaxLength(ede.getMaxDuration());
 			tepd.setMaxLengthUnit(
-					unit(ede.getMaxDurationTimeUnit()));
+					unit(ede.getMaxDurationUnits()));
 			tepd.setMinLength(ede.getMinDuration());
 			tepd.setMinLengthUnit(
-					unit(ede.getMinDurationTimeUnit()));
+					unit(ede.getMinDurationUnits()));
 			tepds[i++] = tepd;
 		}
 		cd.setInducedBy(tepds);
 		ContextOffset offset = new ContextOffset();
-		RelationOperator relOp = v.getRelationOperator();
+		Long relOp = v.getRelationOperator();
 		Integer withinAtLeast = v.getWithinAtLeast();
 		Integer withinAtMost = v.getWithinAtMost();
-		String relOpName = relOp.getName();
+		String relOpName = relationOperatorName(relOp);
 		if ("before".equals(relOpName)) {
 			offset.setStartIntervalSide(Side.FINISH);
 			offset.setFinishIntervalSide(Side.FINISH);
 			if (withinAtLeast != null) {
 				offset.setStartOffset(withinAtLeast);
 			}
-			offset.setStartOffsetUnits(unit(v.getWithinAtLeastUnits()));
+			offset.setStartOffsetUnits(unit(v.getWithinAtLeastUnit()));
 			offset.setFinishOffset(withinAtMost);
-			offset.setFinishOffsetUnits(unit(v.getWithinAtMostUnits()));
+			offset.setFinishOffsetUnits(unit(v.getWithinAtMostUnit()));
 		} else if ("after".equals(relOpName)) {
 			offset.setStartIntervalSide(Side.START);
 			offset.setFinishIntervalSide(Side.START);
 			offset.setStartOffset(withinAtMost != null ? -withinAtMost : null);
-			offset.setStartOffsetUnits(unit(v.getWithinAtMostUnits()));
+			offset.setStartOffsetUnits(unit(v.getWithinAtMostUnit()));
 			if (withinAtLeast != null) {
 				offset.setFinishOffset(-withinAtLeast);
 			}
-			offset.setFinishOffsetUnits(unit(v.getWithinAtLeastUnits()));
+			offset.setFinishOffsetUnits(unit(v.getWithinAtLeastUnit()));
 		} else if ("around".equals(relOpName)) {
 			offset.setStartIntervalSide(Side.START);
 			offset.setFinishIntervalSide(Side.FINISH);
 			offset.setStartOffset(withinAtLeast != null ? -withinAtLeast : null);
-			offset.setStartOffsetUnits(unit(v.getWithinAtLeastUnits()));
+			offset.setStartOffsetUnits(unit(v.getWithinAtLeastUnit()));
 			offset.setFinishOffset(withinAtMost);
-			offset.setFinishOffsetUnits(unit(v.getWithinAtMostUnits()));
+			offset.setFinishOffsetUnits(unit(v.getWithinAtMostUnit()));
 		}
 		cd.setOffset(offset);
 		return cd;

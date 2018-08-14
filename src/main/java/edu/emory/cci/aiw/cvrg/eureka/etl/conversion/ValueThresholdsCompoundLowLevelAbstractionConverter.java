@@ -40,10 +40,13 @@
 package edu.emory.cci.aiw.cvrg.eureka.etl.conversion;
 
 import static edu.emory.cci.aiw.cvrg.eureka.etl.conversion.ConversionUtil.extractContextDefinition;
+import static edu.emory.cci.aiw.cvrg.eureka.etl.conversion.ConversionUtil.thresholdOperationName;
 import java.util.ArrayList;
 import java.util.List;
+import org.eurekaclinical.eureka.client.comm.PhenotypeField;
 import org.eurekaclinical.eureka.client.comm.ValueThreshold;
 import org.eurekaclinical.eureka.client.comm.ValueThresholds;
+import org.eurekaclinical.eureka.client.comm.exception.PhenotypeHandlingException;
 import org.protempa.CompoundLowLevelAbstractionDefinition;
 import org.protempa.ContextDefinition;
 import org.protempa.LowLevelAbstractionDefinition;
@@ -77,7 +80,7 @@ public final class ValueThresholdsCompoundLowLevelAbstractionConverter
 
 	@Override
 	public List<PropositionDefinition> convert(
-			ValueThresholds entity) {
+			ValueThresholds entity) throws PhenotypeHandlingException {
 		List<PropositionDefinition> result = new ArrayList<>();
 		String propId = toPropositionId(entity);
 		if (this.converterVisitor.addPropositionId(propId)) {
@@ -86,9 +89,9 @@ public final class ValueThresholdsCompoundLowLevelAbstractionConverter
 			wrapped.setDisplayName(entity.getDisplayName());
 			wrapped.setDescription(entity.getDescription());
 
-			if (entity.getThresholdsOperator().getName().equalsIgnoreCase("any")) {
+			if (thresholdOperationName(entity.getThresholdsOperator()).equalsIgnoreCase("any")) {
 				wrapped.setValueDefinitionMatchOperator(CompoundLowLevelAbstractionDefinition.ValueDefinitionMatchOperator.ANY);
-			} else if (entity.getThresholdsOperator().getName()
+			} else if (thresholdOperationName(entity.getThresholdsOperator())
 					.equalsIgnoreCase("all")) {
 				wrapped.setValueDefinitionMatchOperator(CompoundLowLevelAbstractionDefinition.ValueDefinitionMatchOperator.ALL);
 			} else {
@@ -99,12 +102,13 @@ public final class ValueThresholdsCompoundLowLevelAbstractionConverter
 			wrapped.setGapFunction(new SimpleGapFunction(0, null));
 
 			List<LowLevelAbstractionDefinition> intermediates = new ArrayList<>();
-			for (ValueThreshold v : entity.getValueThresholds()) {
-				v.getAbstractedFrom().accept(this.converterVisitor);
+			for (int idx=0; idx< entity.getValueThresholds().size(); idx++) {
+                            ValueThreshold v = entity.getValueThresholds().get(idx);
+				this.converterVisitor.visit(v.getPhenotype());
 				result.addAll(this.converterVisitor.getPropositionDefinitions());
 				LowLevelAbstractionDefinition def =
 						new LowLevelAbstractionDefinition(
-						entity.getKey() + "_SUB" + v.getId());
+						entity.getKey() + "_SUB" + idx);
 				def.setConcatenable(false);
 				def.addPrimitiveParameterId(this.converterVisitor.getPrimaryPropositionId());
 				def.setMinimumNumberOfValues(1);
@@ -114,8 +118,8 @@ public final class ValueThresholdsCompoundLowLevelAbstractionConverter
 				thresholdToValueDefinitions(entity, v, def);
 				def.setSlidingWindowWidthMode(SlidingWindowWidthMode.DEFAULT);
 				def.setGapFunction(new SimpleGapFunction(0, null));
-				List<ExtendedPhenotype> extendedPhenotypes =
-						v.getExtendedPhenotypes();
+				List<PhenotypeField> extendedPhenotypes =
+						v.getRelatedPhenotypes();
 				if (extendedPhenotypes != null && !extendedPhenotypes.isEmpty()) {
 					ContextDefinition cd = 
 							extractContextDefinition(entity, 

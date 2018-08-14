@@ -50,7 +50,10 @@ import static edu.emory.cci.aiw.cvrg.eureka.etl.conversion.ConversionUtil.unit;
 import java.util.HashMap;
 import java.util.Map;
 import org.eurekaclinical.eureka.client.comm.Phenotype;
+import org.eurekaclinical.eureka.client.comm.PhenotypeField;
+import org.eurekaclinical.eureka.client.comm.RelatedPhenotypeField;
 import org.eurekaclinical.eureka.client.comm.Sequence;
+import org.eurekaclinical.eureka.client.comm.exception.PhenotypeHandlingException;
 import org.protempa.proposition.interval.Interval.Side;
 import org.protempa.SimpleGapFunction;
 import org.protempa.TemporalPatternOffset;
@@ -84,7 +87,7 @@ final class SequenceConverter extends AbstractConverter
 	}
 
 	@Override
-	public List<PropositionDefinition> convert(Sequence sequenceEntity) {
+	public List<PropositionDefinition> convert(Sequence sequenceEntity) throws PhenotypeHandlingException {
 		List<PropositionDefinition> result = new ArrayList<>();
 		String propId = toPropositionId(sequenceEntity);
 		this.primaryPropId = propId;
@@ -93,23 +96,22 @@ final class SequenceConverter extends AbstractConverter
 					propId);
 			TemporalExtendedPropositionDefinition primaryEP = 
 					buildExtendedProposition(
-					sequenceEntity.getPrimaryExtendedPhenotype());
-			if (sequenceEntity.getRelations() != null) {
-				for (Relation rel : sequenceEntity.getRelations()) {
-					Phenotype lhs =
-							rel.getLhsExtendedPhenotype().getPhenotypeEntity();
-					lhs.accept(converterVisitor);
+					sequenceEntity.getPrimaryPhenotype());
+			if (sequenceEntity.getRelatedPhenotypes() != null) {
+				for (RelatedPhenotypeField rel : sequenceEntity.getRelatedPhenotypes()) {
+					PhenotypeField lhs = rel.getPhenotypeField();
+					converterVisitor.visit(lhs);
 					result.addAll(
 							converterVisitor.getPropositionDefinitions());
 					TemporalExtendedPropositionDefinition tepdLhs = buildExtendedProposition(rel
-							.getLhsExtendedPhenotype());
+							.getPhenotypeField());
 
-					PhenotypeEntity rhs =
-							rel.getRhsExtendedPhenotype().getPhenotypeEntity();
-					rhs.accept(converterVisitor);
+					PhenotypeField rhs =
+							rel.getSequentialPhenotypeField();
+					converterVisitor.visit(rhs);
 					result.addAll(converterVisitor.getPropositionDefinitions());
 					TemporalExtendedPropositionDefinition tepdRhs = buildExtendedProposition(rel
-							.getRhsExtendedPhenotype());
+							.getSequentialPhenotypeField());
 
 					p.add(tepdLhs);
 					p.add(tepdRhs);
@@ -143,7 +145,7 @@ final class SequenceConverter extends AbstractConverter
 	}
 
 	private TemporalExtendedPropositionDefinition buildExtendedProposition(
-			ExtendedPhenotype ep) {
+			PhenotypeField ep) {
 		TemporalExtendedPropositionDefinition tepd =
 				this.extendedProps.get(ep.getId());
 		if (tepd == null) {
@@ -158,17 +160,17 @@ final class SequenceConverter extends AbstractConverter
 	}
 
 	private org.protempa.proposition.interval.Relation buildRelation(
-			Relation rel) {
+			RelatedPhenotypeField rel) {
 		return new org.protempa.proposition.interval.Relation(
 				null, null, null, null, 
-				rel.getMins1f2(), 
-				unit(rel.getMins1f2TimeUnit()),
-				rel.getMaxs1f2(), 
-				unit(rel.getMaxs1f2TimeUnit()),
-				rel.getMinf1s2(), 
-				unit(rel.getMinf1s2TimeUnit()),
-				rel.getMaxf1s2(), 
-				unit(rel.getMaxf1s2TimeUnit()), 
+				rel.getRelationMinCount(), 
+				unit(rel.getRelationMinUnits()),
+				rel.getRelationMaxCount(), 
+				unit(rel.getRelationMaxUnits()),
+				rel.getRelationMinCount(), 
+				unit(rel.getRelationMinUnits()),
+				rel.getRelationMaxCount(), 
+				unit(rel.getRelationMaxUnits()), 
 				null, null, null, null);
 	}
 }

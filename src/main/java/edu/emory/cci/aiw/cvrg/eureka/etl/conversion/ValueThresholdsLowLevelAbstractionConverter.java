@@ -39,9 +39,7 @@
  */
 package edu.emory.cci.aiw.cvrg.eureka.etl.conversion;
 
-import org.eurekaclinical.phenotype.service.entity.ExtendedPhenotype;
-import org.eurekaclinical.phenotype.service.entity.ValueThresholdEntity;
-import org.eurekaclinical.phenotype.service.entity.ValueThresholdGroupEntity;
+
 import org.protempa.LowLevelAbstractionDefinition;
 import org.protempa.PropositionDefinition;
 
@@ -52,10 +50,17 @@ import org.protempa.ContextDefinition;
 import org.protempa.SimpleGapFunction;
 import org.protempa.SlidingWindowWidthMode;
 import static edu.emory.cci.aiw.cvrg.eureka.etl.conversion.ConversionUtil.extractContextDefinition;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.eurekaclinical.eureka.client.comm.PhenotypeField;
+import org.eurekaclinical.eureka.client.comm.RelatedPhenotypeField;
+import org.eurekaclinical.eureka.client.comm.ValueThreshold;
+import org.eurekaclinical.eureka.client.comm.ValueThresholds;
+import org.eurekaclinical.eureka.client.comm.exception.PhenotypeHandlingException;
 
 public final class ValueThresholdsLowLevelAbstractionConverter 
 		extends AbstractValueThresholdGroupEntityConverter implements
-		PropositionDefinitionConverter<ValueThresholdGroupEntity, LowLevelAbstractionDefinition> {
+		PropositionDefinitionConverter<ValueThresholds, LowLevelAbstractionDefinition> {
 	
 	private PropositionDefinitionConverterVisitor converterVisitor;
 	private LowLevelAbstractionDefinition primary;
@@ -78,7 +83,7 @@ public final class ValueThresholdsLowLevelAbstractionConverter
 
 	@Override
 	public List<PropositionDefinition> convert(
-			ValueThresholdGroupEntity entity) {
+			ValueThresholds entity) throws PhenotypeHandlingException {
 		if (entity.getValueThresholds().size() > 1) {
 			throw new IllegalArgumentException(
 					"Low-level abstraction definitions may be created only "
@@ -98,19 +103,19 @@ public final class ValueThresholdsLowLevelAbstractionConverter
 			// thresholds
 			if (entity.getValueThresholds() != null
 					&& entity.getValueThresholds().size() == 1) {
-				ValueThresholdEntity threshold =
+				ValueThreshold threshold =
 						entity.getValueThresholds().get(0);
-				threshold.getAbstractedFrom().accept(converterVisitor);
+                                converterVisitor.visit(threshold.getPhenotype());
 				Collection<PropositionDefinition> abstractedFrom =
 						converterVisitor.getPropositionDefinitions();
 
 				wrapped.addPrimitiveParameterId(
 						converterVisitor.getPrimaryPropositionId());
 				thresholdToValueDefinitions(entity, threshold, wrapped);
-				List<ExtendedPhenotype> extendedPhenotypes = threshold.getExtendedPhenotypes();
+				List<PhenotypeField> extendedPhenotypes = threshold.getRelatedPhenotypes();
 				if (extendedPhenotypes != null && !extendedPhenotypes.isEmpty()) {
 					ContextDefinition contextDefinition = extractContextDefinition(entity,
-							threshold.getExtendedPhenotypes(), threshold);
+							threshold.getRelatedPhenotypes(), threshold);
 					result.add(contextDefinition);
 					wrapped.setContextId(contextDefinition.getId());
 				}

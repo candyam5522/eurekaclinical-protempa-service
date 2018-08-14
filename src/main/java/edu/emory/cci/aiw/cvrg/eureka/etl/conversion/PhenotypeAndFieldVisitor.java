@@ -1,8 +1,15 @@
 /*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package edu.emory.cci.aiw.cvrg.eureka.etl.conversion;
+
+/*-
  * #%L
- * Eureka Services
+ * Eureka! Clinical Protempa Service
  * %%
- * Copyright (C) 2012 - 2013 Emory University
+ * Copyright (C) 2012 - 2018 Emory University
  * %%
  * This program is dual licensed under the Apache 2 and GPLv3 licenses.
  * 
@@ -37,41 +44,15 @@
  * <http://www.gnu.org/licenses/gpl-3.0.html>.
  * #L%
  */
-package edu.emory.cci.aiw.cvrg.eureka.etl.conversion;
 
-import org.protempa.PropositionDefinition;
-
-import java.util.List;
-import org.eurekaclinical.eureka.client.comm.Phenotype;
+import org.eurekaclinical.eureka.client.comm.PhenotypeField;
+import org.eurekaclinical.eureka.client.comm.PhenotypeVisitor;
 import org.eurekaclinical.eureka.client.comm.exception.PhenotypeHandlingException;
 
 /**
- * Converts Eureka! database entities into equivalent Protempa proposition
- * definitions.
  *
- * @param <E> The type of {@link PhenotypeEntity} to convert.
+ * @author mai
  */
-interface PropositionDefinitionConverter<E extends Phenotype,
-		P extends PropositionDefinition> {
-
-	/**
-	 * Converts a Eureka database entity into an equivalent list of Protempa
-	 * proposition definitions.
-	 *
-	 * @param entity The database entity to convert
-	 * @return a list of {@link PropositionDefinition}s
-	 */
-	List<PropositionDefinition> convert(E entity) throws PhenotypeHandlingException;
-
-	/**
-	 * Retrieves the primary proposition created by a call to
-	 * {@link #convert(org.eurekaclinical.phenotype.service.entity.PhenotypeEntity)}.
-	 * This is mostly for converters invoking each other and needing only
-	 * the final highest level (ie, primary) proposition that was created.
-	 *
-	 * @return a {@link PropositionDefinition}.
-	 */
-	P getPrimaryPropositionDefinition();
-	
-	String getPrimaryPropositionId();
+public interface PhenotypeAndFieldVisitor extends PhenotypeVisitor{
+    public void visit(PhenotypeField phenotypeField) throws PhenotypeHandlingException;
 }
