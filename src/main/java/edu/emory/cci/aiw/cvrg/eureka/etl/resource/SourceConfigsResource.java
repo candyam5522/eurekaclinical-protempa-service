@@ -179,4 +179,23 @@ public class SourceConfigsResource {
             params.setUploads(uploads.toArray(new SourceConfigParams.Upload[uploads.size()]));
             return params;
     }
+    
+    @GET
+    @Path("/admin/list")
+    public List<SourceConfigParams> getAdminList(@Context HttpServletRequest req) {
+            List<SourceConfigParams> result = new ArrayList<>();
+
+            for (SourceConfig config : this.getAll(req)) {
+                    result.add(toParams(config));
+            }
+
+            return result;
+    }
+
+//    @GET
+//    @Path("/admin/{id}")
+//    public SourceConfigParams getAdmin(@Context HttpServletRequest req, @PathParam("id") String inId) {
+//            return toParams(this.getSource(req, inId));
+//    }
+//    
 }

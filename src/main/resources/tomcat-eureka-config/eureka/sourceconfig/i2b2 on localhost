@@ -1,0 +1,13 @@
+[edu.emory.cci.aiw.i2b2etl.dsb.I2B2DataSourceBackend]
+dataSourceBackendId=HIVE
+databaseId = jdbc:postgresql://eurekadevdb.bmi.emory.edu:5432/eurekaclinical?currentSchema=i2b2data
+username = i2b2data
+password = jEZf2dhgfJcT
+schemaName = i2b2data
+
+[edu.emory.cci.aiw.i2b2etl.ksb.I2b2KnowledgeSourceBackend]
+databaseAPI = DATASOURCE
+databaseId = java:/comp/env/jdbc/I2B2KS
+targetTable = EUREKAPHENOTYPEONTOLOGY
+
+[org.protempa.backend.asb.java.JavaAlgorithmBackend]
