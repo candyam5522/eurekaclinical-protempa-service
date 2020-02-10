@@ -49,17 +49,22 @@ import edu.emory.cci.aiw.cvrg.eureka.etl.config.EtlProperties;
 import edu.emory.cci.aiw.cvrg.eureka.etl.dao.EtlGroupDao;
 import edu.emory.cci.aiw.cvrg.eureka.etl.dao.AuthorizedUserDao;
 import edu.emory.cci.aiw.cvrg.eureka.etl.dao.SourceConfigDao;
+import edu.emory.cci.aiw.cvrg.eureka.etl.entity.SourceConfigEntity;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.security.RolesAllowed;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.arp.javautil.string.StringUtil;
 import org.eurekaclinical.common.auth.AuthorizedUserSupport;
@@ -67,6 +72,8 @@ import org.eurekaclinical.eureka.client.comm.FileSourceConfigOption;
 import org.eurekaclinical.eureka.client.comm.SourceConfigOption;
 import org.eurekaclinical.eureka.client.comm.SourceConfigParams;
 import org.eurekaclinical.standardapis.exception.HttpStatusException;
+import org.protempa.backend.Configuration;
+import org.protempa.backend.ConfigurationsSaveException;
 
 @Transactional
 @Path("/protected/sourceconfigs")
@@ -103,6 +110,52 @@ public class SourceConfigsResource {
             throw new HttpStatusException(Status.NOT_FOUND);
         }
     }
+    
+    @POST
+    public Response createSourceConfig(@Context HttpServletRequest req,
+             SourceConfig newSourceConfig) {
+        AuthorizedUserEntity user = this.authenticationSupport.getUser(req);
+        
+        SourceConfigEntity scEntity = new SourceConfigEntity();
+        scEntity.setName(newSourceConfig.getId());
+        scEntity.setOwner(user);
+                        
+        SourceConfigs sourceConfigs = new SourceConfigs(this.etlProperties, user, this.sourceConfigDao, this.groupDao);
+        try{
+            if(sourceConfigs.SaveSourceConfig(newSourceConfig)==null){
+                return Response.status(Status.NOT_ACCEPTABLE).build();
+            }
+        }catch (ConfigurationsSaveException ex){
+            return Response.status(Status.INTERNAL_SERVER_ERROR).build();
+        }
+        
+        this.sourceConfigDao.create(scEntity);
+                
+        return Response.created(URI.create("/"+newSourceConfig.getId())).build();
+    }
+    
+    @PUT
+    @Path("/{sourceConfigId}")
+    public Response updateSourceConfig(@Context HttpServletRequest req,
+             @PathParam("sourceConfigId") String sourceConfigId, SourceConfig newSourceConfig) {
+        AuthorizedUserEntity user = this.authenticationSupport.getUser(req);
+        
+        SourceConfigEntity scEntity = new SourceConfigEntity();
+        scEntity.setName(newSourceConfig.getId());
+        scEntity.setOwner(user);
+                        
+    //    this.sourceConfigDao.create(scEntity);
+        newSourceConfig.setId(sourceConfigId);
+        SourceConfigs sourceConfigs = new SourceConfigs(this.etlProperties, user, this.sourceConfigDao, this.groupDao);
+        try{
+            sourceConfigs.SaveSourceConfig(newSourceConfig);
+        }catch (ConfigurationsSaveException ex){
+            return Response.status(Status.INTERNAL_SERVER_ERROR).build();
+        }
+        
+        return Response.created(URI.create("/"+newSourceConfig.getId())).build();
+    }
+
 
     @GET
     public List<SourceConfig> getAll(@Context HttpServletRequest req) {

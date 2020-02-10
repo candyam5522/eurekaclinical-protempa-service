@@ -50,6 +50,8 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.ws.rs.core.Response;
 import org.eurekaclinical.standardapis.exception.HttpStatusException;
+import org.protempa.backend.Configuration;
+import org.protempa.backend.ConfigurationsSaveException;
 
 /**
  *
@@ -107,5 +109,10 @@ final class SourceConfigs {
 		}
 		return result;
 	}
+        
+        
+        public Configuration SaveSourceConfig(SourceConfig newSourceConfig) throws ConfigurationsSaveException{
+            return extractor.SaveSourceConfig(newSourceConfig);
+        }
 
 }

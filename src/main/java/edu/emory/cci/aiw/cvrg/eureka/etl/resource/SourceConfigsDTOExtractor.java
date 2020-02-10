@@ -52,17 +52,24 @@ import edu.emory.cci.aiw.cvrg.eureka.etl.dao.EtlGroupDao;
 import edu.emory.cci.aiw.cvrg.eureka.etl.dao.ResolvedPermissions;
 import edu.emory.cci.aiw.cvrg.eureka.etl.dsb.FileBackendPropertyValidator;
 import edu.emory.cci.aiw.cvrg.eureka.etl.dsb.UriBackendPropertyValidator;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
+import org.ini4j.Profile;
+import org.ini4j.Wini;
 import org.protempa.backend.Backend;
 import org.protempa.backend.BackendInstanceSpec;
 import org.protempa.backend.BackendPropertySpec;
 import org.protempa.backend.BackendPropertyType;
 import org.protempa.backend.BackendPropertyValidator;
+import org.protempa.backend.BackendSpec;
 import org.protempa.backend.Configuration;
 import org.protempa.backend.ConfigurationsLoadException;
 import org.protempa.backend.ConfigurationsNotFoundException;
+import org.protempa.backend.ConfigurationsSaveException;
 import org.protempa.backend.InvalidPropertyNameException;
 import org.protempa.backend.asb.AlgorithmSourceBackend;
 import org.protempa.backend.dsb.DataSourceBackend;
@@ -125,6 +132,60 @@ class SourceConfigsDTOExtractor extends ConfigsDTOExtractor<SourceConfig, Source
 			return null;
 		}
 	}
+        
+        Configuration SaveSourceConfig(SourceConfig newSourceConfig) throws ConfigurationsSaveException{
+            //Configuration newConfiguration = new Configuration();
+ //           Configuration newConfiguration;
+//            try{
+//                newConfiguration = configs.load("Spreadsheet");
+//            }catch (ConfigurationsNotFoundException | ConfigurationsLoadException ex) {
+//			LOGGER.warn("Error getting INI file for source config {}. This source config will be ignored.", "Spreadsheet", ex);
+//			return null;
+//            }
+        //    newConfiguration.setConfigurationId(newSourceConfig.getId());
+        
+                if (!configs.getDirectory().exists() && !configs.getDirectory().mkdir()) {
+            throw new ConfigurationsSaveException("Cannot create directory "
+                    + configs.getDirectory());
+        }
+        Wini ini = new Wini();
+        ini.getConfig().setMultiSection(true);
+        try {
+            File configurationsPath
+                    = new File(configs.getDirectory(), newSourceConfig.getId());
+            FileWriter writer = new FileWriter(configurationsPath);
+            PrintWriter printWriter = new PrintWriter(writer);
+            List<SourceConfig.Section> sectionList = new ArrayList<>();
+            sectionList.add(newSourceConfig.getDataSourceBackends()[0]);
+            sectionList.add(newSourceConfig.getKnowledgeSourceBackends()[0]);
+            sectionList.add(newSourceConfig.getAlgorithmSourceBackends()[0]);
+            
+            for(SourceConfig.Section scSection:sectionList){
+                Profile.Section iniSection = ini.add(scSection.getId());
+                printWriter.printf("[%s]\n",scSection.getId());
+                for (SourceConfigOption option : scSection.getOptions()){
+                    if(option.getValue()!=null && ! option.getValue().equals("")){
+                        iniSection.put(option.getName(), option.getValue());
+                        printWriter.printf("%s = %s\n", option.getName(), option.getValue());
+                    }
+                }
+                printWriter.printf("\n");
+            }
+            printWriter.close();
+
+            //ini.store(configurationsPath);
+        } catch (IOException ex) {
+            throw new ConfigurationsSaveException(ex);
+        }
+            //newConfiguration.setDataSourceBackendSections(dataSourceBackendSections);
+            try{
+                return configs.load(newSourceConfig.getId());
+            }catch (ConfigurationsNotFoundException | ConfigurationsLoadException ex) {
+			LOGGER.warn("Error getting INI file for source config {}. This source config will be ignored.", "Spreadsheet", ex);
+			return null;
+            }
+            
+        }
 
 	@Override
 	ResolvedPermissions resolvePermissions(AuthorizedUserEntity owner, SourceConfigEntity entity) {
